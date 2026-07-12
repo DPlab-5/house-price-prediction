@@ -1,0 +1,10 @@
+.venv
+.venv310
+
+__pycache__
+*.pyc
+.python_packages
+*.dll
+*.exe
+node_modules
+.vscode
