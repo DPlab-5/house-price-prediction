@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ames House Price Predictor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:       #1c1a17;
+      --paper:     #f7f4ef;
+      --warm:      #ede8df;
+      --rule:      #d4cfc6;
+      --brick:     #b85c38;
+      --brick-lt:  #d47a56;
+      --slate:     #4a5568;
+      --muted:     #8a8278;
+      --success:   #2d6a4f;
+      --card:      #ffffff;
+      --shadow:    0 2px 16px rgba(28,26,23,0.08);
+      --shadow-lg: 0 8px 40px rgba(28,26,23,0.13);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    /* Masthead */
+    .masthead {
+      background: var(--ink);
+      padding: 0;
+      border-bottom: 3px solid var(--brick);
+    }
+
+    .masthead-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px 28px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .masthead-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      color: #fff;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .masthead-title em {
+      font-style: italic;
+      color: var(--brick-lt);
+    }
+
+    .masthead-meta {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .masthead-meta p {
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      line-height: 1.8;
+    }
+
+    .masthead-meta strong {
+      color: rgba(255,255,255,0.8);
+      font-weight: 600;
+    }
+
+    /* Layout */
+    .page {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 36px 24px 80px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 28px;
+      align-items: start;
+    }
+
+    @media (max-width: 720px) {
+      .page { grid-template-columns: 1fr; }
+      .masthead-meta { display: none; }
+    }
+
+    /* Form card */
+    .form-card {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .form-card-header {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--rule);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .form-card-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.15rem;
+      font-weight: 400;
+    }
+
+    .api-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--warm);
+      border: 1px solid var(--rule);
+      border-radius: 100px;
+      padding: 5px 12px;
+    }
+
+    .api-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--brick);
+      animation: pulse 2s ease infinite;
+      flex-shrink: 0;
+    }
+
+    .api-pill input {
+      border: none;
+      background: transparent;
+      font-size: 0.72rem;
+      color: var(--slate);
+      font-family: monospace;
+      width: 220px;
+      outline: none;
+    }
+
+    .form-body { padding: 24px 28px; }
+
+    /* Section */
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--brick);
+      margin-bottom: 16px;
+      margin-top: 24px;
+    }
+
+    .section-label:first-child { margin-top: 0; }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--rule);
+    }
+
+    /* Grid */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .grid-1 { display: grid; grid-template-columns: 1fr; gap: 14px; }
+
+    @media (max-width: 520px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* Field */
+    .field { display: flex; flex-direction: column; gap: 5px; }
+
+    .field label {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: 0.01em;
+    }
+
+    .field label span {
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .field input, .field select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1.5px solid var(--rule);
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.88rem;
+      color: var(--ink);
+      background: var(--paper);
+      transition: border-color 0.15s, background 0.15s;
+      outline: none;
+    }
+
+    .field input:focus, .field select:focus {
+      border-color: var(--brick);
+      background: #fff;
+    }
+
+    .field select {
+      appearance: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 5 5-5z' fill='%238a8278'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 30px;
+    }
+
+    input::placeholder { color: #ccc; }
+
+    /* Quality slider */
+    .qual-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .qual-row input[type=range] {
+      flex: 1;
+      padding: 0;
+      border: none;
+      background: transparent;
+      accent-color: var(--brick);
+      height: 4px;
+      cursor: pointer;
+    }
+
+    .qual-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--brick);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    /* Submit */
+    .btn-submit {
+      width: 100%;
+      margin-top: 24px;
+      padding: 14px;
+      background: var(--ink);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      letter-spacing: 0.02em;
+      transition: background 0.15s, transform 0.1s;
+      position: relative;
+    }
+
+    .btn-submit:hover { background: #2d2a25; }
+    .btn-submit:active { transform: translateY(1px); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-arrow { transition: transform 0.2s; }
+    .btn-submit:hover .btn-arrow { transform: translateX(4px); }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+
+    /* Sidebar */
+    .sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+    /* Result panel */
+    .result-panel {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: none;
+      animation: slideIn 0.35s ease both;
+    }
+
+    .result-panel.show { display: block; }
+
+    .result-header {
+      background: var(--ink);
+      padding: 22px 24px;
+    }
+
+    .result-eyebrow {
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 6px;
+    }
+
+    .result-price {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.4rem;
+      color: var(--brick-lt);
+      line-height: 1;
+    }
+
+    .result-body { padding: 18px 24px; }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--warm);
+      font-size: 0.82rem;
+    }
+
+    .result-row:last-child { border-bottom: none; }
+    .result-row span:first-child { color: var(--muted); }
+    .result-row span:last-child { font-weight: 600; }
+
+    /* Error */
+    .error-panel {
+      background: #fff5f5;
+      border: 1px solid #fcc;
+      border-radius: 4px;
+      padding: 14px 18px;
+      font-size: 0.83rem;
+      color: #c0392b;
+      display: none;
+      animation: slideIn 0.3s ease both;
+    }
+
+    .error-panel.show { display: block; }
+
+    /* Info panel */
+    .info-panel {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      padding: 20px 22px;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      color: var(--slate);
+    }
+
+    .info-panel h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      color: var(--ink);
+      margin-bottom: 10px;
+      font-weight: 400;
+    }
+
+    .info-panel ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .info-panel li::before {
+      content: '→ ';
+      color: var(--brick);
+      font-weight: 600;
+    }
+
+    /* Demo notice */
+    .demo-note {
+      background: #fffbf0;
+      border: 1px solid #e8d9a0;
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      color: #8a6820;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .demo-note.show { display: block; }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Masthead -->
+<div class="masthead">
+  <div class="masthead-inner">
+    <div>
+      <div class="masthead-title">Ames <em>House Price</em><br>Predictor</div>
+    </div>
+    <div class="masthead-meta">
+      <p>Dataset<br><strong>Ames Housing, Iowa</strong></p>
+      <p style="margin-top:6px">Model<br><strong>XGBoost / Azure ML</strong></p>
+    </div>
+  </div>
+</div>
+
+<!-- Page -->
+<div class="page">
+
+  <!-- Form -->
+  <div class="form-card">
+    <div class="form-card-header">
+      <h2>Property Details</h2>
+      <div class="api-pill">
+        <div class="api-dot"></div>
+        <input type="text" id="apiUrl" value="https://housepriceapi15.azurewebsites.net/api/predict" placeholder="Azure Function URL"/>
+      </div>
+    </div>
+
+    <div class="form-body">
+
+      <!-- Overall Quality -->
+      <div class="section-label">Overall Quality</div>
+      <div class="field">
+        <label>Rate the overall material and finish quality <span>(1 = Very Poor, 10 = Very Excellent)</span></label>
+        <div class="qual-row">
+          <input type="range" id="OverallQual" min="1" max="10" value="7" oninput="document.getElementById('qualBadge').textContent=this.value"/>
+          <div class="qual-badge" id="qualBadge">7</div>
+        </div>
+      </div>
+
+      <!-- Size & Space -->
+      <div class="section-label">Size & Space</div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Above Ground Living Area <span>(sq ft)</span></label>
+          <input type="number" id="GrLivArea" placeholder="1500" value="1500"/>
+        </div>
+        <div class="field">
+          <label>Total Basement Area <span>(sq ft)</span></label>
+          <input type="number" id="TotalBsmtSF" placeholder="800" value="800"/>
+        </div>
+        <div class="field">
+          <label>1st Floor Area <span>(sq ft)</span></label>
+          <input type="number" id="1stFlrSF" placeholder="900" value="900"/>
+        </div>
+        <div class="field">
+          <label>Lot Area <span>(sq ft)</span></label>
+          <input type="number" id="LotArea" placeholder="8000" value="8000"/>
+        </div>
+      </div>
+
+      <!-- Rooms & Baths -->
+      <div class="section-label">Rooms & Bathrooms</div>
+      <div class="grid-3">
+        <div class="field">
+          <label>Full Bathrooms</label>
+          <input type="number" id="FullBath" placeholder="2" value="2"/>
+        </div>
+        <div class="field">
+          <label>Half Bathrooms</label>
+          <input type="number" id="HalfBath" placeholder="1" value="1"/>
+        </div>
+        <div class="field">
+          <label>Bedrooms Above Ground</label>
+          <input type="number" id="BedroomAbvGr" placeholder="3" value="3"/>
+        </div>
+        <div class="field">
+          <label>Total Rooms Above Ground</label>
+          <input type="number" id="TotRmsAbvGrd" placeholder="7" value="7"/>
+        </div>
+        <div class="field">
+          <label>Kitchens Above Ground</label>
+          <input type="number" id="KitchenAbvGr" placeholder="1" value="1"/>
+        </div>
+        <div class="field">
+          <label>Fireplaces</label>
+          <input type="number" id="Fireplaces" placeholder="1" value="1"/>
+        </div>
+      </div>
+
+      <!-- Garage -->
+      <div class="section-label">Garage</div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Garage Capacity <span>(cars)</span></label>
+          <input type="number" id="GarageCars" placeholder="2" value="2"/>
+        </div>
+        <div class="field">
+          <label>Garage Area <span>(sq ft)</span></label>
+          <input type="number" id="GarageArea" placeholder="480" value="480"/>
+        </div>
+      </div>
+
+      <!-- Age & Condition -->
+      <div class="section-label">Age & Condition</div>
+      <div class="grid-3">
+        <div class="field">
+          <label>Year Built</label>
+          <input type="number" id="YearBuilt" placeholder="2003" value="2003"/>
+        </div>
+        <div class="field">
+          <label>Year Remodeled</label>
+          <input type="number" id="YearRemodAdd" placeholder="2003" value="2003"/>
+        </div>
+        <div class="field">
+          <label>Overall Condition <span>(1-10)</span></label>
+          <input type="number" id="OverallCond" min="1" max="10" placeholder="5" value="5"/>
+        </div>
+      </div>
+
+      <!-- Location -->
+      <div class="section-label">Location & Style</div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Neighborhood</label>
+          <select id="Neighborhood">
+            <option value="CollgCr">College Creek</option>
+            <option value="Veenker">Veenker</option>
+            <option value="Crawfor">Crawford</option>
+            <option value="NoRidge">Northridge</option>
+            <option value="Mitchel">Mitchell</option>
+            <option value="Somerst">Somerset</option>
+            <option value="NWAmes">NW Ames</option>
+            <option value="OldTown">Old Town</option>
+            <option value="BrkSide">Brookside</option>
+            <option value="Sawyer">Sawyer</option>
+            <option value="NridgHt">Northridge Heights</option>
+            <option value="NAmes">North Ames</option>
+            <option value="SawyerW">Sawyer West</option>
+            <option value="IDOTRR">Iowa DOT and Rail Road</option>
+            <option value="MeadowV">Meadow Village</option>
+            <option value="Edwards">Edwards</option>
+            <option value="Timber">Timberland</option>
+            <option value="Gilbert">Gilbert</option>
+            <option value="StoneBr">Stone Brook</option>
+            <option value="ClearCr">Clear Creek</option>
+            <option value="NPkVill">Northpark Villa</option>
+            <option value="Blmngtn">Bloomington Heights</option>
+            <option value="BrDale">Briardale</option>
+            <option value="SWISU">SW of ISU</option>
+            <option value="Blueste">Bluestem</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Building Type</label>
+          <select id="BldgType">
+            <option value="1Fam">Single Family</option>
+            <option value="2fmCon">Two Family Conversion</option>
+            <option value="Duplex">Duplex</option>
+            <option value="TwnhsE">Townhouse End Unit</option>
+            <option value="Twnhs">Townhouse Inside Unit</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>House Style</label>
+          <select id="HouseStyle">
+            <option value="2Story">Two Story</option>
+            <option value="1Story">One Story</option>
+            <option value="1.5Fin">1.5 Story Finished</option>
+            <option value="1.5Unf">1.5 Story Unfinished</option>
+            <option value="SFoyer">Split Foyer</option>
+            <option value="SLvl">Split Level</option>
+            <option value="2.5Fin">2.5 Story Finished</option>
+            <option value="2.5Unf">2.5 Story Unfinished</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Kitchen Quality</label>
+          <select id="KitchenQual">
+            <option value="Ex">Excellent</option>
+            <option value="Gd" selected>Good</option>
+            <option value="TA">Typical/Average</option>
+            <option value="Fa">Fair</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Exterior Quality</label>
+          <select id="ExterQual">
+            <option value="Ex">Excellent</option>
+            <option value="Gd" selected>Good</option>
+            <option value="TA">Typical/Average</option>
+            <option value="Fa">Fair</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Foundation</label>
+          <select id="Foundation">
+            <option value="PConc">Poured Concrete</option>
+            <option value="CBlock">Cinder Block</option>
+            <option value="BrkTil">Brick & Tile</option>
+            <option value="Slab">Slab</option>
+            <option value="Stone">Stone</option>
+            <option value="Wood">Wood</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Sale Info -->
+      <div class="section-label">Sale Info</div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Month Sold</label>
+          <select id="MoSold">
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6" selected>June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Year Sold</label>
+          <input type="number" id="YrSold" placeholder="2010" value="2010"/>
+        </div>
+      </div>
+
+      <button class="btn-submit" id="predictBtn" onclick="predict()">
+        <span id="btnText">Get Price Estimate</span>
+        <span class="btn-arrow" id="btnArrow">→</span>
+        <span class="spinner" id="spinner"></span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Result -->
+    <div class="result-panel" id="resultPanel">
+      <div class="result-header">
+        <div class="result-eyebrow">Estimated Sale Price</div>
+        <div class="result-price" id="resultPrice">—</div>
+      </div>
+      <div class="result-body" id="resultBody"></div>
+    </div>
+
+    <!-- Demo note -->
+    <div class="demo-note" id="demoNote">
+      ⚠️ <strong>Demo mode</strong> — paste your Azure Function URL above to get real ML predictions.
+    </div>
+
+    <!-- Error -->
+    <div class="error-panel" id="errorPanel"></div>
+
+    <!-- Info -->
+    <div class="info-panel">
+      <h3>About this model</h3>
+      <p>Trained on the Ames Housing dataset — 1,460 residential properties sold in Ames, Iowa between 2006–2010.</p>
+      <br/>
+      <ul>
+        <li>5 ML models compared</li>
+        <li>XGBoost selected as best</li>
+        <li>Deployed via Azure Functions</li>
+        <li>297 features used for prediction</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  async function predict() {
+    const btn      = document.getElementById('predictBtn');
+    const btnText  = document.getElementById('btnText');
+    const btnArrow = document.getElementById('btnArrow');
+    const spinner  = document.getElementById('spinner');
+    const apiUrl   = document.getElementById('apiUrl').value.trim();
+
+    // Hide previous results
+    document.getElementById('resultPanel').classList.remove('show');
+    document.getElementById('errorPanel').classList.remove('show');
+    document.getElementById('demoNote').classList.remove('show');
+
+    // Build payload — numeric fields
+    const numFields = [
+      'GrLivArea','TotalBsmtSF','1stFlrSF','LotArea',
+      'FullBath','HalfBath','BedroomAbvGr','TotRmsAbvGrd',
+      'KitchenAbvGr','Fireplaces','GarageCars','GarageArea',
+      'YearBuilt','YearRemodAdd','OverallCond','MoSold','YrSold'
+    ];
+
+    const payload = {
+      OverallQual: parseInt(document.getElementById('OverallQual').value),
+      Neighborhood: document.getElementById('Neighborhood').value,
+      BldgType: document.getElementById('BldgType').value,
+      HouseStyle: document.getElementById('HouseStyle').value,
+      KitchenQual: document.getElementById('KitchenQual').value,
+      ExterQual: document.getElementById('ExterQual').value,
+      Foundation: document.getElementById('Foundation').value,
+    };
+
+    for (const f of numFields) {
+      const val = parseFloat(document.getElementById(f)?.value);
+      if (isNaN(val)) { showError(`Please fill in all fields. "${f}" is missing.`); return; }
+      payload[f] = val;
+    }
+
+    // Loading state
+    btn.disabled   = true;
+    btnText.textContent = 'Calculating...';
+    btnArrow.style.display = 'none';
+    spinner.style.display  = 'block';
+
+    try {
+      const res  = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (data.status === 'success') {
+        showResult(data, payload);
+      } else {
+        showError(data.message || 'Prediction failed.');
+      }
+
+    } catch (err) {
+      // Demo fallback
+      showDemoResult(payload);
+    } finally {
+      btn.disabled = false;
+      btnText.textContent = 'Get Price Estimate';
+      btnArrow.style.display = 'inline';
+      spinner.style.display  = 'none';
+    }
+  }
+
+  function showResult(data, payload) {
+    document.getElementById('resultPrice').textContent = data.formatted_price;
+    renderResultBody(payload);
+    document.getElementById('resultPanel').classList.add('show');
+  }
+
+  function showDemoResult(payload) {
+    const base = 80000
+      + payload.OverallQual * 15000
+      + payload.GrLivArea * 55
+      + payload.GarageCars * 8000
+      + payload.YearBuilt * 200
+      - 2003 * 200;
+    const price = '$' + Math.round(base).toLocaleString('en-US', { minimumFractionDigits: 2 });
+    document.getElementById('resultPrice').textContent = price + ' *';
+    renderResultBody(payload);
+    document.getElementById('resultPanel').classList.add('show');
+    document.getElementById('demoNote').classList.add('show');
+  }
+
+  function renderResultBody(payload) {
+    const nbMap = {
+      CollgCr:'College Creek', NoRidge:'Northridge', NridgHt:'Northridge Hts',
+      StoneBr:'Stone Brook', Somerst:'Somerset', OldTown:'Old Town',
+      Edwards:'Edwards', NAmes:'North Ames', Sawyer:'Sawyer', Gilbert:'Gilbert'
+    };
+
+    const rows = [
+      ['Neighborhood', nbMap[payload.Neighborhood] || payload.Neighborhood],
+      ['Living Area',  payload.GrLivArea.toLocaleString() + ' sq ft'],
+      ['Overall Quality', payload.OverallQual + ' / 10'],
+      ['Year Built',   payload.YearBuilt],
+      ['Garage',       payload.GarageCars + ' car(s)'],
+      ['Bathrooms',    payload.FullBath + ' full, ' + payload.HalfBath + ' half'],
+    ];
+
+    document.getElementById('resultBody').innerHTML = rows.map(([k,v]) => `
+      <div class="result-row">
+        <span>${k}</span>
+        <span>${v}</span>
+      </div>
+    `).join('');
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorPanel');
+    el.textContent = '⚠️ ' + msg;
+    el.classList.add('show');
+  }
+</script>
+</body>
+</html>
